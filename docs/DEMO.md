@@ -31,6 +31,8 @@
 |---|---|---|
 | "Filter by brand, colour and price together" | Listing: pick a category, then a brand, a colour and a price bar | results update with "matched in … ms"; X-ray shows one step per filter |
 | "Show me something with no results" | e.g. Clothing + Gold + Nike | "Nothing matches all of that" with Clear filters; no error |
+| "Prove the engine picks the right method" | Clothing + Women + brand Cation, then look at the X-ray | step 2 galloping, about 9× faster than merge; step 3 bit test, about 7× faster than ANDing all words; smallest first about 3× faster than largest first |
+| "When does it NOT gallop?" | Clothing + Girls (2,236 against 3,925) | merge; the X-ray shows the two are close, which is why galloping only starts at 4× |
 | "Two values of the same filter" | colour: Red and Blue | count goes up (OR inside the field) |
 | "Out-of-stock products" | turn off "In stock" | out-of-stock items appear with an OUT OF STOCK label; the AND NOT step disappears from the X-ray |
 | "Add a product and find it" | Seller tools → Add one product, then search its brand in the shop | it appears at once; the brand's bitmap gains one ID |

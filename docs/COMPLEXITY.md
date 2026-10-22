@@ -40,8 +40,8 @@ same at 8,192 / 2 = 4,096 values. Below that the array is smaller, above it the 
 
 | Pair | AND method | AND time | Result type |
 |---|---|---|---|
-| array ∩ array, similar sizes | merge with two pointers | O(n + m) | array |
-| array ∩ array, L ≥ 64 · s | galloping search (steps 1, 2, 4, 8 … then binary search) | O(s · log(L / s)) | array |
+| array ∩ array, L < 4 · s | merge with two pointers | O(n + m) | array |
+| array ∩ array, L ≥ 4 · s | galloping search (steps 1, 2, 4, 8 … then binary search) | O(s · log(L / s)) | array |
 | array ∩ bitmap | test each array value's bit | O(n) of the array side | array (it can't be bigger than the array) |
 | bitmap ∩ bitmap | AND 2,048 word pairs, count first with popcount | O(2,048) | array if count ≤ 4,096, else bitmap |
 | run ∩ array | binary search each array value in the runs | O(n · log r) | array |
@@ -52,6 +52,16 @@ same at 8,192 / 2 = 4,096 values. Below that the array is smaller, above it the 
 | array, array | O(n + m) merge if n + m ≤ 4,096; else O(n + m + 2,048) via a bitmap | O(n + m) |
 | array, bitmap or run | O(2,048 + n) | O(n) or O(n · log r) (array on the left) |
 | bitmap, anything | O(2,048 + n) | O(2,048 + n) |
+
+**Why 4× and not the paper's 64×:** the C Roaring library uses 64×, tuned for C. We measured our
+JavaScript engine on random arrays: merge wins or ties while the sizes are within about 3× of each
+other, and galloping is faster from about 4× upwards (for 40 against 3,925 values it is about 8× faster).
+So our engine gallops from 4×.
+
+**How the choices are checked live:** for every Storefront search, the X-ray replays the method the
+engine chose and its main alternative on the same containers (same answer), counting the steps and
+timing both, and replays the whole query smallest-first and largest-first. This runs after the shop
+has its answer, so it never slows a search.
 
 `andCardinality` (used for facet counts) has the same time as AND but allocates nothing: for two bitmaps
 it is 2,048 popcounts; for array ∩ bitmap it counts set bits for each array value.
