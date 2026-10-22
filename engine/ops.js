@@ -10,9 +10,11 @@ import { toBitmap, toArray, fromWords } from './convert.js';
 // Every function returns a container of the right type for its result size, and can
 // record what it did in `trace` so the Engine Studio can show it.
 
-// Galloping is used for array ∩ array when one side is at least 64× bigger
-// (the same threshold the Roaring paper uses).
-const GALLOP_RATIO = 64;
+// Galloping is used for array ∩ array when one side is at least 4× bigger.
+// The C Roaring library uses 64×, tuned for C. We measured our JavaScript engine on random
+// arrays (the X-ray's proof replays both methods on every query): merge wins or ties when
+// the sizes are within about 3×, and galloping is faster from about 4× upwards.
+export const GALLOP_RATIO = 4;
 
 function note(trace, method, a, b, out, comparisons) {
   if (trace) trace.push({ method, left: a.type, right: b.type, leftCard: a.cardinality, rightCard: b.cardinality, outCard: out, comparisons });
@@ -245,3 +247,47 @@ export function andNot(a, b) {
 }
 
 export { toArray };
+
+// ---------- PROOF FOR THE X-RAY ----------
+
+// Runs the method the engine chose AND its main alternative on the same two containers,
+// counting the steps and timing both, so the Studio can show why the choice was right.
+//   array ∩ array   : merge vs galloping
+//   array ∩ bitmap  : bit test vs (turn the array into a bitmap, then AND all words)
+//   bitmap ∩ bitmap : AND words vs (turn both into sorted lists, then merge)
+// Only called while tracing, after the query has been timed, so it never slows a search.
+// Time: a few runs of each method on one chunk pair
+export function compareAnd(a, b) {
+  const runs = [];
+  const measure = (method, fn) => {
+    const counter = { n: 0 };
+    const out = fn(counter);
+    for (let i = 0; i < 300; i++) fn({ n: 0 }); // warm up, so both are timed as compiled code
+    // Five batches of about 0.4 ms each; keep the fastest (least disturbed by garbage collection).
+    const batches = [];
+    for (let b = 0; b < 5; b++) {
+      let reps = 0;
+      const t = performance.now();
+      while (performance.now() - t < 0.4) { fn({ n: 0 }); reps++; }
+      batches.push(((performance.now() - t) / reps) * 1000);
+    }
+    runs.push({ method, comparisons: counter.n, us: Math.min(...batches), result: out.cardinality });
+  };
+  if (a.type === 'array' && b.type === 'array') {
+    const small = a.cardinality <= b.cardinality ? a : b;
+    const large = small === a ? b : a;
+    measure('merge', (c) => intersectArraysMerge(a, b, c));
+    measure('gallop', (c) => intersectArraysGallop(small, large, c));
+  } else if ((a.type === 'array' && b.type === 'bitmap') || (a.type === 'bitmap' && b.type === 'array')) {
+    const arr = a.type === 'array' ? a : b;
+    const bm = arr === a ? b : a;
+    measure('bit-test', (c) => intersectArrayBitmap(arr, bm, c));
+    measure('word-and', (c) => { c.n += arr.cardinality; return intersectBitmaps(toBitmap(arr), bm, c); });
+  } else if (a.type === 'bitmap' && b.type === 'bitmap') {
+    measure('word-and', (c) => intersectBitmaps(a, b, c));
+    measure('merge', (c) => { c.n += 2 * BITMAP_WORDS + a.cardinality + b.cardinality; return intersectArraysMerge(toArray(a), toArray(b), c); });
+  } else {
+    return null; // run containers: only one sensible method, nothing to compare
+  }
+  return runs;
+}
