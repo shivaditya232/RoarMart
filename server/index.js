@@ -7,6 +7,7 @@ import { Server } from 'socket.io';
 import { Store } from './store.js';
 import { shopRoutes } from './shopRoutes.js';
 import { studioRoutes } from './studioRoutes.js';
+import { labRoutes } from './labRoutes.js';
 
 // RoarMart server: one engine in memory, shared by the Storefront and the Engine Studio.
 
@@ -20,6 +21,7 @@ const io = new Server(http);
 app.use(express.json({ limit: '1mb' }));
 app.use('/api', shopRoutes(store, io));
 app.use('/api/studio', studioRoutes(store, io));
+app.use('/api/lab', labRoutes(store));
 
 // A bad request must never crash the demo: answer with the error instead.
 app.use((err, req, res, next) => {

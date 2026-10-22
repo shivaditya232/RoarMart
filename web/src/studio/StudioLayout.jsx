@@ -10,6 +10,9 @@ export const STUDIO_NAV = [
   { to: '/studio', end: true, label: 'Live X-ray', icon: <svg {...icon}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg> },
   { to: '/studio/bitmaps', label: 'Bitmap explorer', icon: <svg {...icon}><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg> },
   { to: '/studio/seller', label: 'Seller tools', icon: <svg {...icon}><path d="M3 9l2-5h14l2 5M4 9v11h16V9M3 9h18M9 20v-6h6v6" /></svg> },
+  { to: '/studio/lab', label: 'Performance lab', icon: <svg {...icon}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg> },
+  { to: '/studio/console', label: 'Bitmap console', icon: <svg {...icon}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12 15h5" /></svg> },
+  { to: '/studio/stress', label: 'Stress test', icon: <svg {...icon}><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg> },
 ];
 
 function TopBar() {

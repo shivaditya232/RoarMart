@@ -8,6 +8,9 @@ import StudioLayout from './studio/StudioLayout.jsx';
 import XRay from './studio/XRay.jsx';
 import Bitmaps from './studio/Bitmaps.jsx';
 import Seller from './studio/Seller.jsx';
+import Lab from './studio/Lab.jsx';
+import Console from './studio/Console.jsx';
+import Stress from './studio/Stress.jsx';
 
 export default function App() {
   return (
@@ -22,6 +25,9 @@ export default function App() {
           <Route index element={<XRay />} />
           <Route path="bitmaps" element={<Bitmaps />} />
           <Route path="seller" element={<Seller />} />
+          <Route path="lab" element={<Lab />} />
+          <Route path="console" element={<Console />} />
+          <Route path="stress" element={<Stress />} />
         </Route>
       </Routes>
     </BagProvider>
