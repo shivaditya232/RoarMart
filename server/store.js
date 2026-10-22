@@ -67,12 +67,50 @@ export class Store {
     const raw = facetCounts(this.index, query, ['cat', 'brand', 'color', 'for']);
     const facetMs = performance.now() - facetStart;
 
+    const facets = this.shapeFacets(raw, query);
+    facets.prices = this.priceBuckets(query);
     return {
-      total, page, pageSize, ms, facetMs,
+      total, page, pageSize, ms, facetMs: performance.now() - facetStart,
       items: ids.map((id) => this.card(this.products[id])),
-      facets: this.shapeFacets(raw, query),
+      facets,
       steps, resultStats: result.stats(),
     };
+  }
+
+  // Counts per price band, using the bit-sliced index. Like the other facets, the
+  // counts ignore the price filter itself. The band bitmaps are built once and reused
+  // until the catalogue changes.
+  priceBuckets(query) {
+    if (!this.bucketCache) {
+      const bands = [[0, 499, 'Under ₹500'], [500, 999, '₹500 – ₹999'], [1000, 1999, '₹1,000 – ₹1,999'], [2000, 4999, '₹2,000 – ₹4,999'], [5000, null, '₹5,000 and above']];
+      this.bucketCache = bands.map(([min, max, label]) => ({
+        min, max, label,
+        bitmap: this.index.price.between(min, max ?? this.index.price.maxValue),
+      }));
+    }
+    const base = runQuery(this.index, query, { skipField: 'price' }).result;
+    return this.bucketCache.map(({ min, max, label, bitmap }) => ({ min, max, label, count: base.andCardinality(bitmap) }));
+  }
+
+  // Search-bar suggestions: brands, categories and colours whose name contains the text,
+  // names that START with it first, then by how many products they have.
+  suggest(text, limit = 8) {
+    const q = String(text || '').trim().toLowerCase();
+    if (q.length < 2) return [];
+    const out = [];
+    for (const [term, bm] of this.index.terms) {
+      const colon = term.indexOf(':');
+      if (colon < 0) continue;
+      const field = term.slice(0, colon);
+      if (field !== 'brand' && field !== 'cat' && field !== 'color') continue;
+      const value = term.slice(colon + 1);
+      const label = field === 'cat' ? value.split(' > ').at(-1) : value;
+      const at = label.toLowerCase().indexOf(q);
+      if (at < 0) continue;
+      out.push({ field, value, label, path: field === 'cat' ? value : null, count: bm.cardinality, starts: at === 0 });
+    }
+    out.sort((a, b) => (b.starts - a.starts) || (b.count - a.count));
+    return out.slice(0, limit).map(({ starts, ...rest }) => rest);
   }
 
   // Facets as the sidebar shows them: the next level of categories under the current
@@ -97,7 +135,7 @@ export class Store {
 
   product(id) {
     const p = this.products[id];
-    return p ? { ...this.card(p), category: p.category, fullName: p.name } : null;
+    return p ? { ...this.card(p), category: p.category, idealFor: p.idealFor, fullName: p.name } : null;
   }
 
   // "More like this": same deepest category AND the same colour, smallest-first like any query.
@@ -139,6 +177,7 @@ export class Store {
     p.pid = 'RM' + p.id;
     this.products[p.id] = p;
     this.index.addProduct(p.id, p);
+    this.bucketCache = null;
     return p.id;
   }
 
@@ -159,6 +198,7 @@ export class Store {
     if (!p) return false;
     this.index.removeProduct(id, p);
     this.products[id] = null;
+    this.bucketCache = null;
     return true;
   }
 

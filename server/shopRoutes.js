@@ -36,7 +36,11 @@ export function shopRoutes(store, io) {
   r.get('/products/:id', (req, res) => {
     const p = store.product(Number(req.params.id));
     if (!p) return res.status(404).json({ error: 'Product not found' });
-    res.json({ product: p, similar: store.similar(p.id) });
+    res.json({ product: p, similar: store.similar(p.id, 10) });
+  });
+
+  r.get('/suggest', (req, res) => {
+    res.json({ suggestions: store.suggest(req.query.q) });
   });
 
   r.get('/catalog', (req, res) => {
