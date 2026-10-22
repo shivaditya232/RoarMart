@@ -22,6 +22,70 @@ function methodText(step) {
   return `${names.join(' + ')} · ${count(comparisons)} steps`;
 }
 
+const SHORT = { merge: 'merge', gallop: 'galloping', 'bit-test': 'bit test', 'word-and': 'AND all 2,048 words' };
+const ALT_TEXT = {
+  merge: 'merge',
+  gallop: 'galloping',
+  'bit-test': 'testing each bit',
+  'word-and': 'turning the list into a bitmap and ANDing all 2,048 words',
+};
+const us = (v) => (v < 10 ? v.toFixed(1) : v.toFixed(0)) + ' µs';
+const times = (a, b) => (a / Math.max(b, 1e-9)).toFixed(1) + '×';
+
+// The proof for one step: the method the engine used against its alternative, both replayed
+// on the same chunks (same answer), with steps counted and time measured.
+function proofOf(step) {
+  const chunks = (step.chunks || []).filter((c) => c.alternatives && c.alternatives.length === 2);
+  if (chunks.length === 0) return null;
+  let chosen = { steps: 0, us: 0 }, other = { steps: 0, us: 0 };
+  const altNames = new Set();
+  let same = true;
+  for (const c of chunks) {
+    const mine = c.alternatives.find((a) => a.method === c.method) || c.alternatives[0];
+    const alt = c.alternatives.find((a) => a !== mine);
+    chosen.steps += mine.comparisons; chosen.us += mine.us;
+    other.steps += alt.comparisons; other.us += alt.us;
+    altNames.add(alt.method);
+    if (mine.result !== alt.result) same = false;
+  }
+  return { chosen, other, alt: altNames.size === 1 ? [...altNames][0] : null, same };
+}
+
+function Proof({ step }) {
+  const p = proofOf(step);
+  if (!p) return null;
+  const faster = p.chosen.us <= p.other.us;
+  return (
+    <div className="proof">
+      <span className={'proof-tag' + (faster ? ' win' : '')}>{faster ? `${times(p.other.us, p.chosen.us)} faster` : 'close call'}</span>
+      <span>
+        {p.alt ? <>Instead, {ALT_TEXT[p.alt]}</> : 'The alternative'} would take <b>{count(p.other.steps)} steps · {us(p.other.us)}</b>
+        {' '}vs <b>{count(p.chosen.steps)} steps · {us(p.chosen.us)}</b>{p.same ? ', same answer.' : '.'}
+      </span>
+    </div>
+  );
+}
+
+function OrderProof({ proof, first }) {
+  if (!proof) return null;
+  const s = proof.smallestFirst, l = proof.largestFirst;
+  const faster = s.us <= l.us;
+  return (
+    <div className="order-proof">
+      <div className="panel-title">WHY SMALLEST FIRST · REPLAYED BOTH WAYS</div>
+      <div className="order-rows">
+        <div className="order-row chosen"><span>Smallest first (what the engine did, starting with {first})</span><b>{count(s.comparisons)} steps · {us(s.us)}</b></div>
+        <div className="order-row"><span>Largest first</span><b>{count(l.comparisons)} steps · {us(l.us)}</b></div>
+      </div>
+      <p className="note-s" style={{ margin: 0 }}>
+        {faster
+          ? `Smallest first was ${times(l.us, s.us)} faster: after the first step, every later step only works on the few IDs that are left.`
+          : 'Here largest first was quicker: its first step ANDs two bitmap containers 32 IDs at a time, which is cheaper than testing thousands of IDs one by one. Real databases use a cost model for cases like this; our planner uses the simpler size rule.'}
+      </p>
+    </div>
+  );
+}
+
 export default function XRay() {
   const { feed, now } = useStudio();
   const last = feed[0];
@@ -75,7 +139,7 @@ export default function XRay() {
                     <td><span className="mono">{s.op === 'and' ? '∩ ' : s.op === 'andNot' ? '− ' : ''}{s.label}</span>
                       <span className="sub">{s.kind === 'range' ? `${s.slices} bit slices · ${count(s.size)} IDs in range` : `${count(s.size)} IDs · ${bytes(s.bytes)}`}</span></td>
                     <td>{s.kind === 'range' ? <span className="kind bsi">BIT-SLICED</span> : <span className={'kind ' + kindOf(s.containers)}>{kindOf(s.containers).toUpperCase()}</span>}</td>
-                    <td style={{ color: 'var(--s-soft)' }}>{methodText(s)}</td>
+                    <td style={{ color: 'var(--s-soft)' }}>{methodText(s)}<Proof step={s} /></td>
                     <td className="num"><b>{count(s.left)}</b>
                       <div className="bar"><span style={{ width: Math.max(2, (s.left / Math.max(1, first.left)) * 100) + '%' }} /></div></td>
                   </tr>
@@ -87,6 +151,7 @@ export default function XRay() {
                 The planner put <span className="mono">{first.label}</span> ({count(first.size)} IDs) first, so every later step works on at most {count(first.size)} IDs.
               </p>
             )}
+            <OrderProof proof={last.proof} first={first.label} />
           </div>
         ) : <p className="note-s" style={{ marginTop: 14 }}>No filters: the result is the whole catalogue bitmap.</p>}
       </section>

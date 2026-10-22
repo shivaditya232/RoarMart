@@ -147,3 +147,14 @@
   .chunkrow .name { width: 130px; }
 }
 .s-table th.num { text-align: right; }
+
+/* proof under each X-ray step: the method used vs its alternative, both replayed */
+.proof { display: flex; gap: 10px; align-items: baseline; margin-top: 8px; font-size: 12.5px; color: var(--s-muted); line-height: 1.45; }
+.proof b { color: var(--s-soft); font-weight: 600; font-family: var(--mono); font-size: 12px; }
+.proof-tag { flex-shrink: 0; font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: var(--s-raise); color: var(--s-soft); }
+.proof-tag.win { background: rgba(60, 194, 176, 0.14); color: var(--c-run); }
+.order-proof { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--s-line); display: flex; flex-direction: column; gap: 10px; }
+.order-rows { display: flex; flex-direction: column; gap: 6px; }
+.order-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; color: var(--s-soft); padding: 8px 12px; border-radius: 6px; background: var(--s-raise); }
+.order-row b { font-family: var(--mono); font-weight: 600; }
+.order-row.chosen { box-shadow: inset 3px 0 0 var(--c-run); color: var(--s-text); }
