@@ -5,7 +5,7 @@
   "description": "RoarMart: an e-commerce storefront powered by a from-scratch Roaring Bitmap engine",
   "scripts": {
     "test": "node --test engine/test/*.test.js",
-    "server": "node server/index.js",
+    "server": "npm --prefix server start",
     "web": "npm --prefix web run dev"
   }
 }
