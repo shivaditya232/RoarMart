@@ -77,6 +77,14 @@ export class Store {
     };
   }
 
+  // Replays a search with the proof switched on: for each step, the cost of the method the
+  // engine chose and of its alternative, plus smallest-first vs largest-first order.
+  // Runs after the shop has its answer, so the shop never waits for it.
+  prove(query) {
+    const { steps, proof } = runQuery(this.index, query, { trace: true, prove: true });
+    return { steps, proof };
+  }
+
   // Counts per price band, using the bit-sliced index. Like the other facets, the
   // counts ignore the price filter itself. The band bitmaps are built once and reused
   // until the catalogue changes.

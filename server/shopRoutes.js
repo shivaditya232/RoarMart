@@ -28,9 +28,13 @@ export function shopRoutes(store, io) {
     const pageSize = Math.max(1, Math.min(60, Math.floor(Number(req.body.pageSize) || 24)));
     const sort = ['relevance', 'price-asc', 'price-desc', 'discount'].includes(req.body.sort) ? req.body.sort : 'relevance';
     const out = store.search(query, { page, pageSize, sort, trace: true });
-    io.emit('query', { at: Date.now(), query, total: out.total, ms: out.ms, facetMs: out.facetMs, steps: out.steps, resultStats: out.resultStats });
     const { steps, resultStats, ...forShop } = out;
     res.json(forShop);
+    // Then, without making the shop wait, replay the plan with the proof and send it to the Studio.
+    setImmediate(() => {
+      const { steps: proven, proof } = store.prove(query);
+      io.emit('query', { at: Date.now(), query, total: out.total, ms: out.ms, facetMs: out.facetMs, steps: proven, proof, resultStats });
+    });
   });
 
   r.get('/products/:id', (req, res) => {

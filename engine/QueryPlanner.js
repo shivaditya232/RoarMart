@@ -1,5 +1,6 @@
 import { RoaringBitmap } from './RoaringBitmap.js';
 import { FIELDS } from './CatalogIndex.js';
+import { compareAnd } from './ops.js';
 
 // QueryPlanner: turns a shopper's filters into Roaring Bitmap operations.
 //
@@ -53,7 +54,7 @@ function containerSummary(bm) {
 
 // Time: O(sum over steps of the container-pair costs); the smallest-first order keeps
 // every step bounded by the size of the smallest operand.
-export function runQuery(index, query, { trace = false, skipField = null } = {}) {
+export function runQuery(index, query, { trace = false, skipField = null, prove = false } = {}) {
   const started = performance.now();
   const list = operands(index, query, skipField);
   list.sort((a, b) => a.bitmap.cardinality - b.bitmap.cardinality);
@@ -77,7 +78,49 @@ export function runQuery(index, query, { trace = false, skipField = null } = {})
     if (trace) steps.push({ op: 'andNot', label: 'out of stock', kind: 'term', size: oos.cardinality, bytes: oos.sizeInBytes(), containers: containerSummary(oos), left: result.cardinality, chunks: [] });
   }
   const ms = performance.now() - started;
-  return { result, steps, ms };
+  // Proof for the X-ray, computed after the timing so it never slows the real query.
+  const proof = prove && trace && list.length > 1 ? proveChoices(list, steps) : null;
+  return { result, steps, ms, proof };
+}
+
+// Sum of the per-chunk steps for ANDing the operands in the given order, and its time.
+function costOfOrder(bitmaps) {
+  let comparisons = 0;
+  // Traced once to count the steps; timed without tracing, like a real query.
+  const run = (t = null) => {
+    let r = bitmaps[0];
+    for (let i = 1; i < bitmaps.length; i++) r = r.and(bitmaps[i], t);
+    return r;
+  };
+  const counted = [];
+  run(counted);
+  for (const c of counted) comparisons += c.comparisons || 0;
+  for (let i = 0; i < 100; i++) run(); // warm up first, so both orders are timed as compiled code
+  const batches = [];
+  for (let b = 0; b < 5; b++) {
+    let reps = 0;
+    const t = performance.now();
+    while (performance.now() - t < 0.5) { run(); reps++; }
+    batches.push(((performance.now() - t) / reps) * 1000);
+  }
+  // Best of five batches, in microseconds: the fastest batch is the one least disturbed by
+  // garbage collection, the usual way to time very short operations.
+  return { comparisons, us: Math.min(...batches) };
+}
+
+// 1. For every chunk pair, replay the chosen method and its alternative (same answer, cost of each).
+// 2. Replay the whole query largest-first, to show what the smallest-first order saved.
+function proveChoices(list, steps) {
+  for (const step of steps) {
+    for (const chunk of step.chunks || []) {
+      if (chunk.pair) chunk.alternatives = compareAnd(chunk.pair[0], chunk.pair[1]);
+    }
+  }
+  const bitmaps = list.map((o) => o.bitmap);
+  return {
+    smallestFirst: costOfOrder(bitmaps),
+    largestFirst: costOfOrder([...bitmaps].reverse()),
+  };
 }
 
 // Facet counts the way real shops do it: the counts for a field ignore that field's

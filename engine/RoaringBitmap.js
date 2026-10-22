@@ -134,7 +134,8 @@ export class RoaringBitmap {
       else {
         const chunkTrace = trace ? [] : null;
         const c = ops.and(this.containers[i], other.containers[j], chunkTrace);
-        if (trace) trace.push({ key: a, ...chunkTrace[0] });
+        // The two containers are kept (hidden) so the planner can replay the alternatives.
+        if (trace) trace.push(Object.defineProperties({ key: a, ...chunkTrace[0] }, { pair: { value: [this.containers[i], other.containers[j]], enumerable: false } }));
         if (c.cardinality > 0) { out.keys.push(a); out.containers.push(c); }
         i++; j++;
       }
