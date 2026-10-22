@@ -39,8 +39,27 @@ if (existsSync(dist)) {
 io.on('connection', (socket) => socket.emit('index-changed', { at: Date.now(), what: 'hello', overview: store.overview() }));
 
 const PORT = Number(process.env.PORT) || 4000;
+
+// A clear message instead of a stack trace if something else already uses the port.
+http.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Stop the other server (Ctrl+C in its terminal) or run with PORT=4001.`);
+    process.exit(1);
+  }
+  throw err;
+});
+
+// One bad request must never take the demo down: log anything unexpected and keep serving.
+process.on('uncaughtException', (err) => console.error('Unexpected error (server keeps running):', err));
+process.on('unhandledRejection', (err) => console.error('Unexpected error (server keeps running):', err));
+
 http.listen(PORT, () => {
   const o = store.overview();
   console.log(`RoarMart engine ready: ${o.products.toLocaleString()} products, ${o.terms.toLocaleString()} bitmaps, built in ${store.loadMs.toFixed(0)} ms`);
-  console.log(`Server on http://localhost:${PORT}`);
+  if (existsSync(dist)) {
+    console.log(`Storefront:    http://localhost:${PORT}`);
+    console.log(`Engine Studio: http://localhost:${PORT}/studio`);
+  } else {
+    console.log(`API on http://localhost:${PORT}. For the web app, run "npm run web" and open http://localhost:5173`);
+  }
 });

@@ -4,6 +4,9 @@
   "type": "module",
   "description": "RoarMart: an e-commerce storefront powered by a from-scratch Roaring Bitmap engine",
   "scripts": {
+    "setup": "npm --prefix server install && npm --prefix web install",
+    "build": "npm --prefix web run build",
+    "start": "npm run build && npm --prefix server start",
     "test": "node --test engine/test/*.test.js server/test/*.test.js",
     "server": "npm --prefix server start",
     "web": "npm --prefix web run dev"
