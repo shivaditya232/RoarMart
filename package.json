@@ -1,0 +1,11 @@
+{
+  "name": "roarmart",
+  "private": true,
+  "type": "module",
+  "description": "RoarMart: an e-commerce storefront powered by a from-scratch Roaring Bitmap engine",
+  "scripts": {
+    "test": "node --test engine/test/*.test.js",
+    "server": "node server/index.js",
+    "web": "npm --prefix web run dev"
+  }
+}
